@@ -16,19 +16,37 @@ class CausalSelfAttention(nn.Module):
     
     def forward(self, x):
         b, num_tokens, d_in = x.shape
+        print(f"\n--- ATTENTION FORWARD PASS START ---")
+        print(f"0. Input (x) shape: {x.shape} -> [Batch, SeqLen, EmbedDim]")
 
+        # 1. Generate Q, K, V
         keys = self.W_key(x)
         queries = self.W_query(x)
         values = self.W_value(x)
+        print(f"1. Keys shape:    {keys.shape}")
+        print(f"   Queries shape: {queries.shape}")
+        print(f"   Values shape:  {values.shape}")
 
-        attn_scores = queries @ keys.transpose(1,2)
+        # 2. Compute Attention Scores (Q * K^T)
+        print(f"   Transposed Keys shape: {keys.transpose(1, 2).shape} -> [Batch, EmbedDim, SeqLen]")
+        attn_scores = queries @ keys.transpose(1, 2)
+        print(f"2. Unmasked Attn Scores:  {attn_scores.shape} -> [Batch, SeqLen, SeqLen] (The 8x8 grid)")
 
+        # 3. Apply the Causal Mask
         attn_scores.masked_fill_(self.mask.bool()[:num_tokens, :num_tokens], -torch.inf)
+        print(f"3. Masked Attn Scores:    {attn_scores.shape} (Upper right triangle is now -inf)")
 
-        attn_weights = torch.softmax(attn_scores/keys.shape[-1] **0.5, dim=-1)
+        # 4. Scale and Softmax
+        attn_weights = torch.softmax(attn_scores / keys.shape[-1]**0.5, dim=-1)
+        print(f"4. Attn Weights (Softmax):{attn_weights.shape} (Rows now sum to 1.0)")
+        
         attn_weights = self.dropout(attn_weights)
 
+        # 5. Multiply by Values
         context_vec = attn_weights @ values
+        print(f"5. Final Context Vector:  {context_vec.shape} -> [Batch, SeqLen, EmbedDim]")
+        print(f"--- ATTENTION FORWARD PASS END ---\n")
+        
         return context_vec
 
 if __name__ == "__main__":
