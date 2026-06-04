@@ -10,7 +10,6 @@ class MultiHeadAttention(nn.Module):
         self.num_heads = num_heads
         self.head_dim = d_out // num_heads
         
-        # CORRECTED: Properly initialize all three linear layers
         self.W_query = nn.Linear(d_in, d_out, bias=qkv_bias)
         self.W_key = nn.Linear(d_in, d_out, bias=qkv_bias)
         self.W_value = nn.Linear(d_in, d_out, bias=qkv_bias)
@@ -27,13 +26,10 @@ class MultiHeadAttention(nn.Module):
         queries = self.W_query(x)
         values = self.W_value(x)
 
-        # 2. THE CRITICAL MISSING STEP: SPLIT INTO HEADS
-        # Reshape [batch, tokens, 256] -> [batch, tokens, 8, 32]
         keys = keys.view(b, num_tokens, self.num_heads, self.head_dim)
         queries = queries.view(b, num_tokens, self.num_heads, self.head_dim)
         values = values.view(b, num_tokens, self.num_heads, self.head_dim)
 
-        # 3. Transpose to group the heads for parallel math
         # Reshape [batch, tokens, 8, 32] -> [batch, 8, tokens, 32]
         keys = keys.transpose(1, 2)
         queries = queries.transpose(1, 2)
