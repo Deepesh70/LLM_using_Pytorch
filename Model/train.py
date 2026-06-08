@@ -60,6 +60,10 @@ def main():
 
         avg_loss = total_loss / len(dataloader)
         print(f"Epoch [{epoch+1}/{EPOCHS}], Loss: {avg_loss:.4f}")
+        torch.save(model.state_dict(), "gpt_prototype.pth")
+        print("Model saved after epoch", epoch+1)
     
 if __name__ == "__main__":
     main()
+    
+    

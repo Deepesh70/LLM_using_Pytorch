@@ -44,6 +44,10 @@ if __name__ == "__main__":
     
     # Initialize the model (In a real scenario, you would load your saved weights here via torch.load)
     model = GPTModel(VOCAB_SIZE, EMBEDDING_DIM, CONTEXT_LENGTH, 0.0, NUM_HEADS, NUM_LAYERS)
+    
+    #laod the model
+    model.load_state_dict(torch.load("gpt_prototype.pth", map_location=device,weights_only=True))
+
     model.to(device)
     model.eval() # CRITICAL: Turns off Dropout for inference
     
@@ -51,7 +55,7 @@ if __name__ == "__main__":
     tokenizer = tiktoken.get_encoding("gpt2")
     
     # 3. The Prompt
-    start_context = "Hello, I am"
+    start_context = "This is a sample text"
     
     # Encode prompt to integers and shape it as a batch of 1: [1, SeqLen]
     encoded_prompt = tokenizer.encode(start_context, allowed_special={"<|endoftext|>"})
