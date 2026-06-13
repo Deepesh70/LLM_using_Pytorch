@@ -1,0 +1,12 @@
+[
+  {
+    "instruction": "What is the capital of France?",
+    "input": "",
+    "output": "The capital of France is Paris."
+  },
+  {
+    "instruction": "Reverse the following string.",
+    "input": "hello",
+    "output": "olleh"
+  }
+]

@@ -5,3 +5,6 @@ __pycache__/
 Model/__pycache__/
 
 Model/*.pth
+
+Model/alpaca_data.json
+Model/gpt_prototype.pth
