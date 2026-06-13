@@ -83,7 +83,7 @@ if __name__ == "__main__":
 
     # Build the model architecture first, then load the trained weights.
     # Without loading weights, the model is random and will produce nonsense.
-    model = GPTModel(VOCAB_SIZE, EMBEDDING_DIM, CONTEXT_LENGTH, 0.0, NUM_HEADS, NUM_LAYERS)
+    model = GPTModel(VOCAB_SIZE, EMBEDDING_DIM, CONTEXT_LENGTH, 0.0, NUM_HEADS, NUM_LAYERS, qkv_bias=True)
 
     if not os.path.exists(MODEL_PATH):
         raise FileNotFoundError(
