@@ -1,80 +1,116 @@
+"""Generate text from the small GPT model trained by train.py.
+
+Full inference flow:
+1. Build the same GPTModel architecture that was used during training.
+2. Load the saved parameters from gpt_prototype.pth.
+3. Convert the user's prompt into GPT-2 token IDs.
+4. Feed the current token sequence into the model.
+5. Take the model's prediction for the last position only.
+6. Append the selected next token and repeat.
+7. Decode all token IDs back into readable text.
+"""
+
+import os
+
 import torch
 import tiktoken
+
 from gpt import GPTModel
 
+
+MODEL_PATH = "gpt_prototype.pth"
+
+
 def generate_text_simple(model, idx, max_new_tokens, context_size):
-    # idx is the initial integer tensor of your prompt. Shape: [Batch, SeqLen]
-    
+    """Autoregressively generate new tokens using greedy decoding.
+
+    Args:
+        model: Trained GPTModel in eval mode.
+        idx: Prompt token IDs with shape [batch_size, current_sequence_length].
+        max_new_tokens: Number of new tokens to append after the prompt.
+        context_size: Maximum number of tokens the model can see at once.
+
+    Returns:
+        A token tensor containing the original prompt plus generated tokens.
+    """
+
+    # GPT generation is autoregressive: one new token is predicted, appended,
+    # then used as part of the input for the next prediction.
     for _ in range(max_new_tokens):
-        # 1. Crop context
-        # If the generated text gets longer than what the model can handle (e.g., 1024),
-        # we must chop off the oldest words so it fits in the context window.
+        # Keep only the newest tokens if the sequence grows longer than the
+        # model's context window. The positional embedding table has entries
+        # only up to context_size, so longer inputs would fail.
         idx_cond = idx[:, -context_size:]
-        
-        # 2. Forward Pass
-        # CRITICAL: torch.no_grad() tells PyTorch to turn off the calculus engine.
-        # We are not training here. Tracking gradients during inference wastes massive memory.
+
+        # Inference does not need gradients. This saves memory and makes
+        # generation faster because PyTorch does not build a backward graph.
         with torch.no_grad():
+            # logits shape: [batch_size, sequence_length, vocab_size]
             logits = model(idx_cond)
-        
-        # 3. Focus on the final step
-        # Logits shape: [Batch, SeqLen, VocabSize]
-        # We only care about the model's prediction for the very LAST word.
-        logits = logits[:, -1, :] # Shape becomes: [Batch, VocabSize]
-        
-        # 4. Greedy Decoding
-        # Find the index (token ID) with the absolute highest score
-        idx_next = torch.argmax(logits, dim=-1, keepdim=True) # Shape: [Batch, 1]
-        
-        # 5. Append to the sequence
-        # We concatenate the new token to the end of our running sequence
-        idx = torch.cat((idx, idx_next), dim=1) # Shape: [Batch, SeqLen + 1]
-        
+
+        # The model predicts a next-token distribution for every input position.
+        # For generation we only need the distribution after the final token.
+        logits = logits[:, -1, :]
+
+        # Greedy decoding chooses the single highest-scoring token. This is
+        # deterministic but can sound repetitive; sampling can be added later.
+        idx_next = torch.argmax(logits, dim=-1, keepdim=True)
+
+        # Append the predicted token to the running sequence.
+        idx = torch.cat((idx, idx_next), dim=1)
+
     return idx
 
+
 if __name__ == "__main__":
-    # 1. Setup
+    # These hyperparameters must match train.py. If they differ, the saved
+    # checkpoint shapes will not fit this model architecture.
     VOCAB_SIZE = 50257
     EMBEDDING_DIM = 256
     CONTEXT_LENGTH = 64
     NUM_HEADS = 8
     NUM_LAYERS = 4
-    
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    
-    # Initialize the model (In a real scenario, you would load your saved weights here via torch.load)
-    model = GPTModel(VOCAB_SIZE, EMBEDDING_DIM, CONTEXT_LENGTH, 0.0, NUM_HEADS, NUM_LAYERS)
-    
-    #laod the model
-    model.load_state_dict(torch.load("gpt_prototype.pth", map_location=device,weights_only=True))
 
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    # Build the model architecture first, then load the trained weights.
+    # Without loading weights, the model is random and will produce nonsense.
+    model = GPTModel(VOCAB_SIZE, EMBEDDING_DIM, CONTEXT_LENGTH, 0.0, NUM_HEADS, NUM_LAYERS)
+
+    if not os.path.exists(MODEL_PATH):
+        raise FileNotFoundError(
+            f"Could not find {MODEL_PATH}. Run train.py first so the model has "
+            "trained weights to generate from."
+        )
+
+    model.load_state_dict(torch.load(MODEL_PATH, map_location=device, weights_only=True))
     model.to(device)
-    model.eval() # CRITICAL: Turns off Dropout for inference
-    
-    # 2. The Tokenizer
+
+    # eval() disables dropout and other training-only behavior.
+    model.eval()
+
+    # The same tokenizer must be used during training and generation so token
+    # IDs mean the same thing in both scripts.
     tokenizer = tiktoken.get_encoding("gpt2")
-    
-    # 3. The Prompt
+
     start_context = "This is a sample text"
-    
-    # Encode prompt to integers and shape it as a batch of 1: [1, SeqLen]
+
+    # Convert text -> token IDs -> tensor batch of size 1.
     encoded_prompt = tokenizer.encode(start_context, allowed_special={"<|endoftext|>"})
-    token_tensor = torch.tensor(encoded_prompt).unsqueeze(0).to(device)
-    
+    token_tensor = torch.tensor(encoded_prompt, dtype=torch.long).unsqueeze(0).to(device)
+
     print(f"Input Prompt: '{start_context}'")
     print(f"Encoded Tensor: {token_tensor.tolist()}\n")
-    
-    # 4. Generate
+
     print("Generating text...")
     out_tokens = generate_text_simple(
-        model=model, 
-        idx=token_tensor, 
-        max_new_tokens=10, 
-        context_size=CONTEXT_LENGTH
+        model=model,
+        idx=token_tensor,
+        max_new_tokens=10,
+        context_size=CONTEXT_LENGTH,
     )
-    
-    # 5. Decode back to English
-    # out_tokens is a 2D tensor [1, final_seq_len]. We flatten it to 1D and decode.
+
+    # Convert token IDs back to text.
     generated_text = tokenizer.decode(out_tokens.squeeze(0).tolist())
-    
+
     print(f"\nFinal Output: {generated_text}")
