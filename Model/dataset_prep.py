@@ -14,8 +14,18 @@ target tokens: [is,   a,  sample, text]
 That shift teaches the model to predict the next token.
 """
 
+import os
 import torch
 from torch.utils.data import DataLoader, Dataset
+
+# Fix SSL certificate path if environment variable points to a non-existent file
+if "SSL_CERT_FILE" in os.environ and not os.path.exists(os.environ["SSL_CERT_FILE"]):
+    try:
+        import certifi
+        os.environ["SSL_CERT_FILE"] = certifi.where()
+    except ImportError:
+        del os.environ["SSL_CERT_FILE"]
+
 import tiktoken
 
 

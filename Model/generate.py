@@ -11,14 +11,22 @@ Full inference flow:
 """
 
 import os
-
 import torch
+
+# Fix SSL certificate path if environment variable points to a non-existent file
+if "SSL_CERT_FILE" in os.environ and not os.path.exists(os.environ["SSL_CERT_FILE"]):
+    try:
+        import certifi
+        os.environ["SSL_CERT_FILE"] = certifi.where()
+    except ImportError:
+        del os.environ["SSL_CERT_FILE"]
+
 import tiktoken
 
 from gpt import GPTModel
 
 
-MODEL_PATH = "gpt_prototype.pth"
+MODEL_PATH = "gpt2_124m_custom.pth"
 
 
 def generate_text_simple(model, idx, max_new_tokens, context_size):
@@ -66,10 +74,10 @@ if __name__ == "__main__":
     # These hyperparameters must match train.py. If they differ, the saved
     # checkpoint shapes will not fit this model architecture.
     VOCAB_SIZE = 50257
-    EMBEDDING_DIM = 256
-    CONTEXT_LENGTH = 64
-    NUM_HEADS = 8
-    NUM_LAYERS = 4
+    EMBEDDING_DIM = 768
+    CONTEXT_LENGTH = 1024
+    NUM_HEADS = 12
+    NUM_LAYERS = 12
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -93,7 +101,7 @@ if __name__ == "__main__":
     # IDs mean the same thing in both scripts.
     tokenizer = tiktoken.get_encoding("gpt2")
 
-    start_context = "This is a sample text"
+    start_context = "The future of artificial intelligence is"
 
     # Convert text -> token IDs -> tensor batch of size 1.
     encoded_prompt = tokenizer.encode(start_context, allowed_special={"<|endoftext|>"})

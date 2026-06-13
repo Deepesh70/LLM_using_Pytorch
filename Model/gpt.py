@@ -20,7 +20,7 @@ from transformer_block import TransformerBlock
 class GPTModel(nn.Module):
     """Minimal GPT model built from embeddings and transformer blocks."""
 
-    def __init__(self, vocab_size, embedding_dim, context_length, drop_rate, num_heads, num_layers):
+    def __init__(self, vocab_size, embedding_dim, context_length, drop_rate, num_heads, num_layers, qkv_bias=False):
         super().__init__()
 
         # Token embedding table:
@@ -47,6 +47,7 @@ class GPTModel(nn.Module):
                 context_length=context_length,
                 dropout=drop_rate,
                 num_heads=num_heads,
+                qkv_bias=qkv_bias,
             ) for _ in range(num_layers)
         ])
 
@@ -116,6 +117,7 @@ if __name__ == "__main__":
         drop_rate=0.1,
         num_heads=NUM_HEADS,
         num_layers=NUM_LAYERS,
+        
     )
 
     logits = model(dummy_inputs)
